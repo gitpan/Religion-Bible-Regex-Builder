@@ -7,13 +7,12 @@ WriteMakefile(
     AUTHOR              => 'Daniel Holmlund <holmlund.dev@gmail.com>',
     VERSION_FROM        => 'lib/Religion/Bible/Regex/Builder.pm',
     ABSTRACT_FROM       => 'lib/Religion/Bible/Regex/Builder.pm',
-    ($ExtUtils::MakeMaker::VERSION >= 6.3002
-      ? ('LICENSE'=> 'perl')
-      : ()),
     PL_FILES            => {},
     PREREQ_PM => {
+        'Religion::Bible::Regex::Config' => 0,
         'Test::More' => 0,
+        'version'    => 0,
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
-    clean               => { FILES => 'Religion-Bible-Regex-*' },
+    clean               => { FILES => 'Religion-Bible-Regex-Builder-*' },
 );

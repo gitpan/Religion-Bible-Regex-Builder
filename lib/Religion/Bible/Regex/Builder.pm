@@ -1,52 +1,11 @@
-#!/usr/bin/perl -w
 package Religion::Bible::Regex::Builder;
 
-=head1 NAME
-
-Religion::Bible::Regex::Builder - builds regular expressions that match Bible References 
-
-=head1 VERSION
-
-version 0.9
-
-=cut
-
-our $VERSION = '0.9';
-
-=head1 SYNOPSIS
-
 use warnings;
-
-use Religion::Bible::Regex::Config;
-use Religion::Bible::Regex::Builder;
-
-my $configfile = 'config.yml';
-
-my $c = new Religion::Bible::Regex::Config($configfile);
-my $r = new Religion::Bible::Regex::Builder($c);                                                                                                                     
-my $text = "Ge 1:1, Mt 6:33, see page 4:5 and Jn 3:16";
-$text =~ s/$r->{reference_biblique}/<ref id="$&">$&<\/ref>/g;
-
-print $text . "\n";
-
---------
-This prints:
-<ref id="Ge 1:1">Ge 1:1</ref>, <ref id="Mt 6:33">Mt 6:33</ref>, see page 4:5 and <ref id="Jn 3:16">Jn 3:16</ref>
-
-=head1 DESCRIPTION
-This module builds highly configurable regular expressions for parsing Bible references.
-The goal of this project is to make higher level Bible viewing, editing and tagging tools easier to create.
-The configuration files are in YAML format.
-
-Also included with this project are configurations files for Bible verses in different languages.
-=cut
-
-
 use strict;
-use warnings;
-#use Cwd;
 use Carp;
-use Data::Dumper;
+
+use version; our $VERSION = qv('0.9.1');
+
 # Input files are assumed to be in the UTF-8 strict character encoding.
 use utf8;
 binmode(STDOUT, ":utf8");
@@ -55,30 +14,11 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
 
 require Exporter;
 our @ISA = qw(Exporter);
-
 our %EXPORT_TAGS = ( 'all' => [ qw( ) ] );
-
 our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-
 our @EXPORT = qw(
 
 );
-
-=head2 METHODS
-
-=over 4
-
-=item new($$;$$)
-
-Builds the set of regular expressions for parsing Bible references.
-
-Parameters:
-    1. A Religion::Bible::Regex::Config object which gives configurations
-       such as the Books and Abbreviations to recognize, key phrases which 
-       mark the beginning of a verse or list of verses, etc ... For more, 
-       information see the 
-
-=cut
 
 sub new {
     my $class = shift;
@@ -87,12 +27,12 @@ sub new {
     bless $self, $class;
 
     # Get the Configurations for building these regular expressions
-    my %bookconfig = $self->process_config($config);
+    my %bookconfig = $self->_process_config($config);
 
     #################################################################################### 
     #	Définitions par défaut des expressions régulières avec références bibliques
     #  
-    # 	La fonction 'set_regex' a trois paramètres.
+    # 	La fonction '_set_regex' a trois paramètres.
     #		1. Un nom unique pour cette expression régulière
     #		2. Une experssion régulière
     #		3. Si la paramètre deux est 'undef', une experssion régulière comme defaut 
@@ -105,23 +45,23 @@ sub new {
     #################################################################################### 
     # chapitre : c'est un nombre qui indique un chapitre
     my $chapitre = qr/\d{1,3}/;
-    $self->set_regex(	'chapitre', 
+    $self->_set_regex(	'chapitre', 
 			$bookconfig{'chapitre'}, 
             $chapitre
 		    );
 
     # verset : c'est un nombre qui indique un verset
     my $verset = qr/\d{1,3}[abcdes]?/;
-    $self->set_regex(	'verset', 
+    $self->_set_regex(	'verset', 
 			$bookconfig{'verset'}, 
-            $verset
+			$verset
 		    );
 
     # chiffre : c'est un nombre qui indique un chapitre ou verset 
     my $chiffre = qr/\d{1,3}[abcdes]?/;
-    $self->set_regex(	'chiffre', 
+    $self->_set_regex(	'chiffre', 
 			$bookconfig{'chiffre'}, 
-            $chiffre
+			$chiffre
 		    );
 
 
@@ -130,43 +70,43 @@ sub new {
     #################################################################################### 
     # cv_separateur : vous pouvez trouver ce entre un chapitre et un verset
     my $cv_separateur = qr/(?::|\.)/;
-    $self->set_regex(	'cv_separateur', 
+    $self->_set_regex(	'cv_separateur', 
 			$bookconfig{'cv_separateur'}, 
-		    $cv_separateur	
+			$cv_separateur	
 		    );
 
     # separateur : cette sépare deux références bibliques
     my $separateur = qr/\bet\b/;
-    $self->set_regex(	'separateur', 
+    $self->_set_regex(	'separateur', 
 			$bookconfig{'separateur'}, 
-    		$separateur	
+			$separateur	
 		    );
 
     # cl_separateur : cette sépare deux références bibliques et que le deuxième référence est un référence d'un chaptire
     my $cl_separateur = qr/;/;
-    $self->set_regex(	'cl_separateur', 
+    $self->_set_regex(	'cl_separateur', 
 			$bookconfig{'cl_separateur'}, 
-    		$cl_separateur	
+			$cl_separateur	
 		    );
 
     # vl_separateur : cette sépare deux références bibliques et que le deuxième référence est un référence d'un verset
     my $vl_separateur = qr/,/;
-    $self->set_regex(	'vl_separateur', 
+    $self->_set_regex(	'vl_separateur', 
 			$bookconfig{'vl_separateur'}, 
-	        $vl_separateur		
+			$vl_separateur		
 		    );
 
     my $intervale = qr/(?:-|–|−)/;
     # tiret : ce correspond à tous les types de tiret
-    $self->set_regex(	'intervale', 
+    $self->_set_regex(	'intervale', 
 			$bookconfig{'intervale'}, 
-		    $intervale	
+			$intervale	
 		    );
     # reference_separateurs : ce correspond à tous les types de separateur entre références biblque 
     my $cl_ou_vl_separateur = qr/(?:$self->{cl_separateur}|$self->{vl_separateur}|$self->{separateur})/;
-    $self->set_regex(	'cl_ou_vl_separateurs', 
+    $self->_set_regex(	'cl_ou_vl_separateurs', 
 			$bookconfig{'cl_ou_vl_separateurs'}, 
-	        $cl_ou_vl_separateur	
+			$cl_ou_vl_separateur	
 		    );
 
 
@@ -184,7 +124,7 @@ sub new {
 
     # intervale_chiffre : deux chapitre avec un tiret entre
     # Par exemple: '-2', '–9', ou ' - 4'
-    $self->set_regex(	'intervale_chiffre', 
+    $self->_set_regex(	'intervale_chiffre', 
 			$bookconfig{'intervale_chiffre'},  
 		    $intervale_chiffre	
 		    );
@@ -199,7 +139,7 @@ sub new {
 
     # cv_separateur_chiffre : deux chapitre avec un tiret entre
     # Par exemple: ':2', '.9', ou ' : 4'
-    $self->set_regex(	'cv_separateur_chiffre', 
+    $self->_set_regex(	'cv_separateur_chiffre', 
 			$bookconfig{'cv_separateur_chiffre'}, 
 		    $cv_separateur_chiffre	
 		    );
@@ -219,28 +159,28 @@ sub new {
    
     # reference_contexte_mots_avant : les mots qui indique que le prochain référence est un chapitre référence
     my $reference_mots = qr/(?:dans|voir aussi)/;
-    $self->set_regex(	'reference_mots', 
+    $self->_set_regex(	'reference_mots', 
 			$bookconfig{'reference_mots'}, 
             $reference_mots			
     );
 
     # chapitre_contexte_mots_avant : les mots qui indique que le prochain référence est un chapitre référence
     my $chapitre_mots = qr/(?:dans le chapitre)/;
-    $self->set_regex(	'chapitre_mots', 
+    $self->_set_regex(	'chapitre_mots', 
 			$bookconfig{'chapitre_mots'}, 
             $chapitre_mots			
     );
 
     # verset_contexte_mots_avant : les mots qui indique que le prochain référence est un verset référence
     my $verset_mots = qr/(?:vv?\.)/;
-    $self->set_regex(	'verset_mots', 
+    $self->_set_regex(	'verset_mots', 
 			$bookconfig{'verset_mots'},  
             $verset_mots
     );
 
     # voir_contexte_mots_avant : les mots qui indique que le prochain référence est un verset référence
     my $voir_mots = qr/(?:voir)/;
-    $self->set_regex(	'voir_mots', 
+    $self->_set_regex(	'voir_mots', 
 			$bookconfig{'voir_mots'},  
             $voir_mots
     );
@@ -255,7 +195,7 @@ sub new {
         Samuel|S|Rois|R|Chroniques|Ch|Corinthiens|Co|Thessaloniciens|Th|Timothée|Ti|Pierre|P|Jean|Jn|Esras|Es|Maccabees|Ma|Psalm|Ps
     /x;
 
-    $self->set_regex(	'livres_numerique', 
+    $self->_set_regex(	'livres_numerique', 
 			$bookconfig{'livres_numerique'}, 
             $livres_numerique
     );
@@ -264,7 +204,7 @@ sub new {
     if (defined($self->{'livres_numerique'})) {
         $livres_numerique_protect = qr/(?!(?:[\s ]*(?:$livres_numerique)))/;
     }
-    $self->set_regex(   'livres_numerique_protect',
+    $self->_set_regex(   'livres_numerique_protect',
             $bookconfig{'livres_numerique_protect'},
             $livres_numerique_protect
     );
@@ -275,7 +215,7 @@ sub new {
 /x;
 
     # livres : le nom complet de tous les livres, avec et sans accents
-    $self->set_regex(	'livres', 
+    $self->_set_regex(	'livres', 
 			$bookconfig{'livres'}, 
             $livres
     );
@@ -285,14 +225,14 @@ sub new {
 /x;
     
     # abbreviations : le nom complet de tous les abbreviations, avec et sans accents
-    $self->set_regex(	'abbreviations', 
+    $self->_set_regex(	'abbreviations', 
 			$bookconfig{'abbreviations'}, 
             $abbreviations
     );
 
     # livres_et_abbreviations : la liste de tous les livres et les abréviations
     my $livres_et_abbreviations = qr/(?:$self->{'livres'}|$self->{'abbreviations'})/;
-    $self->set_regex(	'livres_et_abbreviations', 
+    $self->_set_regex(	'livres_et_abbreviations', 
 			$bookconfig{'livres_et_abbreviations'}, 
             $livres_et_abbreviations
 		    );
@@ -312,31 +252,31 @@ sub new {
       )
     /x;
 
-    $self->set_regex(	'contexte_mots', 
+    $self->_set_regex(	'contexte_mots', 
 			$bookconfig{'contexte_mots'}, 
             $contexte_mots
 		    );
 
     #livre2abre : une table de changement du livre à l'abréviation
-    $self->set_hash(	'book2key', 
+    $self->_set_hash(	'book2key', 
 			$bookconfig{'book2key'}, 
             {}
     );
     
     #abre2livres : une table de changement du abréviation à livre
-    $self->set_hash(	'abbr2key', 
+    $self->_set_hash(	'abbr2key', 
 			$bookconfig{'abbr2key'}, 
 			{}
 		    );
 
     #livre2abre : une table de changement du livre à l'abréviation
-    $self->set_hash(	'key2book', 
+    $self->_set_hash(	'key2book', 
 			$bookconfig{'key2book'}, 
             {}
     );
     
     #abre2livres : une table de changement du abréviation à livre
-    $self->set_hash(	'key2abbr', 
+    $self->_set_hash(	'key2abbr', 
 			$bookconfig{'key2abbr'}, 
 			{}
 		    );
@@ -344,24 +284,14 @@ sub new {
 
     # livres_avec_un_chapitre :  la liste de tous les livres avec un seul chapitre
     my $livres_avec_un_chapitre = qr/Ab|Abdias|2Jn|2Jean|Phm|Philemon|Philémon|Jud|Jude|3Jn|3Jean/;
-    $self->set_regex(	'livres_avec_un_chapitre', 
+    $self->_set_regex(	'livres_avec_un_chapitre', 
 			$bookconfig{'livres_avec_un_chapitre'}, 
             $livres_avec_un_chapitre
 		    );
 
     #######################################################################################################
-    # full_reference_protection : Il s'agit d'une expression régulière complexe. Ne pas changer, sauf si vous savez ce que vous faites.
-    #$self->set_regex(	'reference_protection', 
-	#		$bookconfig{'reference_protection'}, 
-	#		"(?<!(>|\"))(?<!(1|2|3))(?<!(1\\s|2\\s|3\\s))(?<!(1 |2 |3 ))(?<!(1\\n|2\\n|3\\n))"
-	#	    );
-
-    # reference_biblique : Expression Régulière Important. Cette expression régulière cherche les références bibliques
-    # par exemple : 'Jean 1.1', 'Genèse 1', 'Mt 4:2,6', 
-    #$self->set_regex(	'reference_biblique', 
-	#		$bookconfig{'reference_biblique'}, 
-
-	#	    );
+    # full_reference_protection : Il s'agit d'une expression régulière complexe. Ne pas changer, 
+    # sauf si vous savez ce que vous faites.
 
     my $cv_list = qr/
         $self->{'chiffre'} # LC, '22'
@@ -392,7 +322,7 @@ sub new {
     /x; 
 
     # cv_list : Combines LC, LCC, LCCV, LCCVV and LCV, LCVV, LCVCV
-    $self->set_regex(	'cv_list', 
+    $self->_set_regex(	'cv_list', 
 			$bookconfig{'cv_list'},
 	        $cv_list	
 		    );
@@ -419,7 +349,7 @@ sub new {
     )
     /x;
 
-    $self->set_regex(	'reference_biblique', 
+    $self->_set_regex(	'reference_biblique', 
 			$bookconfig{'reference_biblique'}, 
 		    $reference_biblique
 		    );
@@ -446,7 +376,7 @@ sub new {
     )
     /x;
 
-    $self->set_regex(	'reference_biblique_list', 
+    $self->_set_regex(	'reference_biblique_list', 
 			$bookconfig{'reference_biblique_list'}, 
 		    $reference_biblique_list
 		    );
@@ -456,19 +386,12 @@ sub new {
 
 
 ################################################################################
-# Helper functions
+# Helper functions for internal use
 ################################################################################
-=over 5
-
-=item set_regex 
-
-For internal use only.  Please, do not call this function
-
-=cut
-sub set_regex {
+sub _set_regex {
     my ($self, $key, $regex, $default_regex) = @_;
 	if (defined($regex)) {
-        my $result = qr/$regex/;	# Evaluate that line
+        my $result = qr/$regex/;	        # Evaluate that line
         if ($@) {                       	# Check for compile or run-time errors.
             croak "Invalid regex:\n $regex";
         } else {
@@ -481,7 +404,7 @@ sub set_regex {
 	}
 }
 
-sub set_hash {
+sub _set_hash {
     my ($self, $key, $hash, $default_hash) = @_;
     if (defined($hash)) {
             $self->{$key} = $hash;
@@ -494,18 +417,18 @@ sub set_hash {
 ################################################################################
 # les fonctions qui se préoccupe de la configuration
 ################################################################################
-sub process_config {
+sub _process_config {
     my $self = shift;
     my $config = shift;
     my %retval;
 
-    while ( my ($key, $value) = each(%{$config->{mainconfig}{regex}}) ) {
+    while ( my ($key, $value) = each(%{$config->{config}{regex}}) ) {
         if ($key =~ m/definitions/) {
-            $self->init_data_structures($value, $config, \%retval);
+            $self->_init_data_structures($value, $config, \%retval);
         } elsif ($value =~ m/^(?:fichier|file):/) {
-            $retval{$key} = $self->build_regexes_from_file($value);
+            $retval{$key} = $self->_build_regexes_from_file($value);
         } elsif (defined(ref $value) && ref $value eq "HASH") {
-            $retval{$key} = $self->process_config($value);
+            $retval{$key} = $self->_process_config($value);
         } else {
             $retval{$key} = $value;    
         }
@@ -513,12 +436,7 @@ sub process_config {
     return %retval;
 }
 
-# sub data {
-#     my $self = shift;
-#     return $self->{'data'};
-# }
-
-sub build_regexes_from_file {
+sub _build_regexes_from_file {
     my $self = shift;
     my $value = shift;
     my @list;
@@ -526,7 +444,7 @@ sub build_regexes_from_file {
     # Enleve le phrase 'fichier:' ou 'file:'
     $value =~ s/^(?:fichier|file)://g;
     
-    open(LIST, "<:encoding(UTF-8)", $value) or croak "Couldn't open \'$value\' for reading: $!\n";
+    open(*LIST, "<:encoding(UTF-8)", $value) or croak "Couldn't open \'$value\' for reading: $!\n";
     while(<LIST>) {
         chomp;                  # no newline
         s/[^\\]#.*//;           # no comments si il y a un '\' devant le '#' il n'est pas un commentarie
@@ -539,17 +457,18 @@ sub build_regexes_from_file {
     return "(?:" . join_regex(\@list) . ")";
 }
 
-sub join_regex {
+sub _join_regex {
 	my $array_ref = shift;
 	if (defined($array_ref)) {
 		return join("|", @{$array_ref});
 	} else { 
-		return undef;
+		return;
 	}
 }
 
+
 ################################################################################
-# init_data_structures
+# _init_data_structures
 # 
 # Creates the following mappings:
 #   An array of all match book names (book names to search for in a document)
@@ -569,7 +488,7 @@ sub join_regex {
 #        Abbreviation: Ge
 #
 ################################################################################
-sub init_data_structures {
+sub _init_data_structures {
     my $self = shift;
     my $path_to_config_file = shift;
     my $config = shift;
@@ -612,123 +531,83 @@ sub init_data_structures {
     $retval->{'bookconfig'} = $bookconfig;
 }
 
-=item abbreviation($key)
 
-Returns a string representing the normalized abbreviation for a given 
-book or key.
+1; # Magic true value required at end of module
+__END__
 
-Parameters:
-    Key - Maybe a number or a book name
-          The key is defined in the abbreviation configuration file.
-        
-          For example, '1' probably corresponds to "Genesis"
-          and the abbreviation "Ge" probably go with "Genesis" as well.
+=head1 NAME
 
-=cut
+Religion::Bible::Regex::Builder - builds regular expressions that match Bible References
 
-sub abbreviation {
-    my $self = shift;
-    my $key = shift;
-    # try a lookup just in case $key eq 'Pr' or 'Genèse'    
-    my $foundkey = $self->key($key);
 
-    # if we found a key then use it as the index
-    return undef unless (non_empty($foundkey));
-    return $self->{key2abbr}{$foundkey};
-}
+=head1 VERSION
 
-sub non_empty {
-    my $value = shift;
-    return (defined($value) && $value ne '');
-}  
+This document describes Religion::Bible::Regex::Builder version 0.9.1
 
-=item book($key)
 
-Returns a string representing the normalized book name for a given 
-book or key.
+=head1 SYNOPSIS
 
-Parameters:
-    Key - Maybe a number or a book name
-          The key is defined in the abbreviation configuration file.
-        
-          For example, '1' probably corresponds to "Genesis"
-          and the abbreviation "Ge" probably go with "Genesis" as well.
+	use Religion::Bible::Regex::Builder;
 
-=cut
-sub book {
-    my $self = shift;
-    my $key = shift;
+	use warnings;
 
-    # try a lookup just in case $key eq 'Pr' or 'Genèse'    
-    my $foundkey = $self->key($key);
+	use Religion::Bible::Regex::Config;
+	use Religion::Bible::Regex::Builder;
 
-    # if we found a key then use it as the index
-    return undef unless (non_empty($foundkey));
-    return $self->{key2book}{$foundkey};
-}
+	my $configfile = 'config.yml';
 
-=item key($book_or_abbreviation)
+	my $c = new Religion::Bible::Regex::Config($configfile);
+	my $r = new Religion::Bible::Regex::Builder($c);
+	my $text = "Ge 1:1, Mt 6:33, see page 4:5 and Jn 3:16";
+	$text =~ s/$r->{reference_biblique}/<ref id="$&">$&<\/ref>/g;
 
-Returns a string representing the key book name or abbreviations
-for a given book or key.
+	print $text . "\n";
+
+--------
+This prints:
+<ref id="Ge 1:1">Ge 1:1</ref>, <ref id="Mt 6:33">Mt 6:33</ref>, see page 4:5 and <ref id="Jn 3:16">Jn 3:16</ref>
+
+  
+=head1 DESCRIPTION
+
+This module builds highly configurable regular expressions for parsing Bible references.
+The goal of this project is to make higher level Bible viewing, editing and tagging tools easier to create.
+The configuration files are in YAML format.
+
+
+=head1 FUNCTIONS
+
+=head2 new
+
+Builds the set of regular expressions for parsing Bible references.
 
 Parameters:
-    Book_or_abbreviation: is a string defined in the abbreviation
-                          configuration file under Key.Match.Book
-                          or Key.Match.Abbreviation 
+    1. A Religion::Bible::Regex::Config object which gives configurations
+       such as the Books and Abbreviations to recognize, key phrases which 
+       mark the beginning of a verse or list of verses, etc ...
 
-=cut
-sub key {
-    my $self = shift;
-    my $book_or_abbr = shift || '';
-    return $self->{book2key}{$book_or_abbr} || $self->{abbr2key}{$book_or_abbr};
-}
+=head1 DEPENDENCIES
 
-=item bookname_type($book)
+=for author to fill in:
+	Religion::Bible::Regex::Config
 
-Takes a string representing a normalized book or abbreviation 
-and returns :
-    CANONICAL_NAME - if the book matches a Key.Normalized.Book value
-                     defined in the abbreviation config file.
-                    
-                     This also means that given a Builder object
-                     $book =~ m/$builder->{livres}/ is true.
-                     
-    ABBREVIATION   - if the book matches a Key.Normalized.Abbreviation
-                     value defined in the abbreviation config file.
-                    
-                     This also means that given a Builder object
-                     $book =~ m/$builder->{abbreviations}/ is true.
+=head1 BUGS AND LIMITATIONS
 
-=cut
-sub bookname_type {
-    my $self = shift;
-    my $book = shift || '';
-    return('NONE') unless non_empty($book);
-    return('CANONICAL_NAME') if ($book =~ m/$self->{livres}/);
-    return('ABBREVIATION') if ($book =~ m/$self->{abbreviations}/);
-    return('UNKNOWN');
-}
+No bugs have been reported.
 
-sub is_canonical_name {
-    my $self = shift;
-    my $book = shift || '';
-    return ($self->bookname_type($book) eq 'CANONICAL_NAME') ? 1 : undef;
-}
+Please report any bugs or feature requests to
+C<bug-religion-bible-regex-builder@rt.cpan.org>, or through the web interface at
+L<http://rt.cpan.org>.
 
-sub is_abbreviation {
-    my $self = shift;
-    my $abbr = shift || '';
-    return ($self->bookname_type($abbr) eq 'ABBREVIATION') ? 1 : undef;
-}
 
 =head1 AUTHOR
 
-Daniel Holmlund<< <holmlund.dev at gmail.com> >>
-
-=head1 SPONSORSHIP
-
-Development sponsored by Editions Clé <http://editionscle.com/>.
+Daniel Holmlund  C<< <holmlund.dev@gmail.com> >>
 
 
-1;
+=head1 LICENCE AND COPYRIGHT
+
+Copyright (c) 2009, Daniel Holmlund C<< <holmlund.dev@gmail.com> >>. All rights reserved.
+
+This module is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself. See L<perlartistic>.
