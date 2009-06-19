@@ -4,8 +4,9 @@ use warnings;
 use strict;
 use Carp;
 
-use version; our $VERSION = qv('0.9.2');
+use version; our $VERSION = qv('0.95');
 use Data::Dumper;
+
 # Input files are assumed to be in the UTF-8 strict character encoding.
 use utf8;
 binmode(STDOUT, ":utf8");
@@ -28,7 +29,7 @@ sub new {
 
     # Get the Configurations for building these regular expressions
     my %configs;
-    $self->_process_config($config->get_search_configurations, \%configs);
+    $self->_process_config($config->get, \%configs);
 
     ######################################################################################
     #	Définitions par défaut des expressions régulières avec références bibliques
@@ -48,11 +49,25 @@ sub new {
     my $chapitre = qr/\d{1,3}/;
     $self->_set_regex(	'chapitre', 
 			$configs{'chapitre'}, 
-            $chapitre
+                        $chapitre
+		    );
+
+    # verset_number : c'est un nombre qui indique un verset
+    my $verse_number = qr/\d{1,3}/;
+    $self->_set_regex(	'verse_number', 
+			$configs{'verse_number'}, 
+			$verse_number
+		    );
+
+    # verset_letter : c'est un lettre miniscule a la fin d'un verset
+    my $verse_letter = qr/[a-z]/;
+    $self->_set_regex(	'verse_letter', 
+			$configs{'verse_letter'}, 
+			$verse_letter
 		    );
 
     # verset : c'est un nombre qui indique un verset
-    my $verset = qr/\d{1,3}[abcdes]?/;
+    my $verset = qr/(?:$self->{verse_number})(?:$self->{verse_letter})?/;
     $self->_set_regex(	'verset', 
 			$configs{'verset'}, 
 			$verset
@@ -95,14 +110,14 @@ sub new {
     $self->_set_regex(	'vl_separateur', 
 			$configs{'vl_separateur'}, 
 			$vl_separateur		
-		    );
+		     );
 
     my $intervale = qr/(?:-|–|−)/;
     # tiret : ce correspond à tous les types de tiret
     $self->_set_regex(	'intervale', 
 			$configs{'intervale'}, 
 			$intervale	
-		    );
+		     );
 
     # reference_separateurs : ce correspond à tous les types de separateur entre références biblque 
     my $cl_ou_vl_separateur = qr/(?:$self->{cl_separateur}|$self->{vl_separateur}|$self->{separateur})/;
@@ -129,7 +144,7 @@ sub new {
     $self->_set_regex(	'intervale_chiffre', 
 			$configs{'intervale_chiffre'},  
                         $intervale_chiffre	
-		    );
+                     );
 
     my $cv_separateur_chiffre = qr/
         # CV Separator Verset
@@ -355,7 +370,7 @@ sub new {
     $self->_set_regex(	'reference_biblique', 
 			$configs{'reference_biblique'}, 
                         $reference_biblique
-		     );
+	);
 
     # reference_biblique_list : Cette expression régulière correspond à une liste de références bibliques 
     #				ex. '1 Ti 1.19 ; Ge 1:1, 2:16-18' or '1 Ti 1.19 ; 2Ti 2:16-18'
@@ -381,10 +396,64 @@ sub new {
 
     $self->_set_regex(	'reference_biblique_list', 
 			$configs{'reference_biblique_list'}, 
-		    $reference_biblique_list
-		    );
+			$reference_biblique_list
+	);
 
     return $self;
+}
+
+sub abbreviation {
+    my $self = shift;
+    my $key = shift || '';
+
+#    return unless defined($key);
+
+    chomp($key);
+
+    return $self->{key2abbr}{$key} if ($key =~ /^\d+$/);
+    # try a lookup just in case $key eq 'Pr' or 'Genèse'    
+    my $foundkey = $self->key($key);
+
+    # if we found a key then use it as the index
+    return unless (_non_empty($foundkey));
+    return $self->{key2abbr}{$foundkey};
+}
+
+sub book {
+    my $self = shift;
+    my $key = shift;
+
+    return unless defined($key);
+
+    chomp($key);
+
+#    return $self->{key2book}{$key} if ($key =~ /\d/);
+
+    # try a lookup just in case $key eq 'Pr' or 'Genèse'    
+    my $foundkey = $self->key($key);
+
+    # if we found a key then use it as the index
+    if (defined($foundkey)) {
+	return $self->{key2book}{$foundkey};
+    }
+    return $self->{key2book}{$key};
+}
+
+sub key {
+    my $self = shift;
+    my $book_or_abbr = shift || '';
+    chomp($book_or_abbr);
+
+    return $self->{book2key}{$book_or_abbr} || $self->{abbr2key}{$book_or_abbr};
+}
+
+sub bookname_type {
+    my $self = shift;
+    my $book = shift || '';
+    return('NONE') unless _non_empty($book);
+    return('CANONICAL_NAME') if ($book =~ m/$self->{livres}/);
+    return('ABBREVIATION') if ($book =~ m/$self->{abbreviations}/);
+    return('UNKNOWN');
 }
 
 
@@ -395,7 +464,7 @@ sub _set_regex {
     my ($self, $key, $regex, $default_regex) = @_;
 #    return '' if (m/^$/ =~ $regex);
 	if (defined($regex)) {
-        my $result = qr/$regex/;	        # Evaluate that line
+        my $result = eval { qr/$regex/ };	        # Evaluate that line
         if ($@) {                       	# Check for compile or run-time errors.
             croak "Invalid regex:\n $regex";
         } else {
@@ -416,6 +485,11 @@ sub _set_hash {
         $self->{$key} = $default_hash;
     }
 }
+
+sub _non_empty {
+    my $value = shift;
+    return (defined($value) && $value ne '');
+}  
 
 ################################################################################
 # les fonctions qui se préoccupe de la configuration
@@ -473,6 +547,15 @@ sub _join_regex {
 	} else { 
 		return;
 	}
+}
+
+# Encode and decode helper
+sub _encode {
+    my $class = shift;
+    my $s = shift;
+    chomp($s);
+    $s =~ s/([èéÉïëà])/'\x{' . sprintf("%2.2x",ord($1)) . '}'/eg;
+    return $s;
 }
 
 
@@ -592,6 +675,26 @@ Parameters:
     1. A Religion::Bible::Regex::Config object which gives configurations
        such as the Books and Abbreviations to recognize, key phrases which 
        mark the beginning of a verse or list of verses, etc ...
+
+=head2 key
+    
+Returns the key given an abbreviations or the canonical book name
+
+=head2 book
+    
+Returns the canonical book name given an abbreviations or a key
+
+=head2 abbreviation
+    
+Returns the abbreviation given the canonical book name or a key
+
+=head2 bookname_type
+    Arguments: a string that is either a book name of an abbreviations
+
+    Returns CANONICAL_NAME if the argument is in the list of CANONICAL NAMES
+    Returns ABBREVIATIONS  if the argument is in the list of ABBREVIATIONS
+    Returns NONE if the argument is empty
+    Returns UNKNOWN otherwise
 
 =head1 DEPENDENCIES
 

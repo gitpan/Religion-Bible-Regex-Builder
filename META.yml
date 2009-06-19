@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                Religion-Bible-Regex-Builder
-version:             0.9.2
+version:             v0.95
 abstract:            builds regular expressions that match Bible References
 license:             ~
 author:              
