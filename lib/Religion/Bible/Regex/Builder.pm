@@ -4,7 +4,7 @@ use warnings;
 use strict;
 use Carp;
 
-use version; our $VERSION = qv('0.95');
+use version; our $VERSION = qv('0.96');
 use Data::Dumper;
 
 # Input files are assumed to be in the UTF-8 strict character encoding.
