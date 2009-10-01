@@ -4,7 +4,7 @@ use warnings;
 use strict;
 use Carp;
 
-use version; our $VERSION = qv('0.96');
+use version; our $VERSION = '0.98';
 use Data::Dumper;
 
 # Input files are assumed to be in the UTF-8 strict character encoding.
@@ -45,41 +45,39 @@ sub new {
     #################################################################################### 
     #	Définitions des chiffres
     #################################################################################### 
-    # chapitre : c'est un nombre qui indique un chapitre
-    my $chapitre = qr/\d{1,3}/;
+    # chapitre : c'est un chiffre inférieur à 150 qui indique un chapitre
+    #            le chapitre avec le grand chiffre dans la Bible est Psaume 150
+    # regex for roman numbers less than 150
+    # \b(?:(?:CL|(?:C(XL|X?X?X?)(IX|IV|V?I?I?I?)))|(?:(XC|XL|L?X?X?X?)(IX|IV|V?I?I?I?)))\b
+    my $chapitre = qr/(?:\b150\b)|(?:\b1[01234]\d\b)|\b\d{1,2}\b/;
     $self->_set_regex(	'chapitre', 
 			$configs{'chapitre'}, 
                         $chapitre
-		    );
+	);
 
-    # verset_number : c'est un nombre qui indique un verset
-    my $verse_number = qr/\d{1,3}/;
+    # verset_number : c'est un chiffre inférieur à 176 qui indique un verset
+    #                 le plus grand verset dans la Bible est Psaume 119:176
+    # regex for roman numbers less than 176
+    # \b(?:(?:CLXX(IV|II|III|V?I?)|(?:C(XL|X?X?X?)(IV|V?I?I?I?)))|(?:CLX?(IX|IV|V?I?I?I?)|(?:C(XL|X?X?X?)(IX|IV|V?I?I?I?)))|(?:(XC|XL|L?X?X?X?)(IX|IV|V?I?I?I?)))\b
+    my $verse_number = qr/(?:17[0123456]|1[0123456]\d|\d{1,2})/;
     $self->_set_regex(	'verse_number', 
 			$configs{'verse_number'}, 
 			$verse_number
-		    );
+	);
 
     # verset_letter : c'est un lettre miniscule a la fin d'un verset
     my $verse_letter = qr/[a-z]/;
     $self->_set_regex(	'verse_letter', 
 			$configs{'verse_letter'}, 
 			$verse_letter
-		    );
+	);
 
-    # verset : c'est un nombre qui indique un verset
-    my $verset = qr/(?:$self->{verse_number})(?:$self->{verse_letter})?/;
+    # verset : c'est un chiffre et lettre qui indique un verset ou une partie de celle-ci
+    my $verset = qr/\b(?:$self->{verse_number})(?:$self->{verse_letter})?\b/;
     $self->_set_regex(	'verset', 
 			$configs{'verset'}, 
 			$verset
-		    );
-
-    # chiffre : c'est un nombre qui indique un chapitre ou verset 
-    my $chiffre = qr/\d{1,3}[abcdes]?/;
-    $self->_set_regex(	'chiffre', 
-			$configs{'chiffre'}, 
-			$chiffre
-		    );
-
+	);
 
     #################################################################################### 
     # Définitions de la ponctuation	
@@ -89,77 +87,91 @@ sub new {
     $self->_set_regex(	'cv_separateur', 
 			$configs{'cv_separateur'}, 
 			$cv_separateur	
-		    );
+	);
 
     # separateur : cette sépare deux références bibliques
     my $separateur = qr/\bet\b/;
     $self->_set_regex(	'separateur', 
 			$configs{'separateur'}, 
 			$separateur	
-		    );
+	);
 
     # cl_separateur : cette sépare deux références bibliques et que le deuxième référence est un référence d'un chaptire
     my $cl_separateur = qr/;/;
     $self->_set_regex(	'cl_separateur', 
 			$configs{'cl_separateur'}, 
 			$cl_separateur	
-		    );
+	);
 
     # vl_separateur : cette sépare deux références bibliques et que le deuxième référence est un référence d'un verset
     my $vl_separateur = qr/,/;
     $self->_set_regex(	'vl_separateur', 
 			$configs{'vl_separateur'}, 
 			$vl_separateur		
-		     );
+	);
 
     my $intervale = qr/(?:-|–|−)/;
     # tiret : ce correspond à tous les types de tiret
     $self->_set_regex(	'intervale', 
 			$configs{'intervale'}, 
 			$intervale	
-		     );
+	);
 
     # reference_separateurs : ce correspond à tous les types de separateur entre références biblque 
     my $cl_ou_vl_separateur = qr/(?:$self->{cl_separateur}|$self->{vl_separateur}|$self->{separateur})/;
     $self->_set_regex(	'cl_ou_vl_separateurs', 
 			$configs{'cl_ou_vl_separateurs'}, 
 			$cl_ou_vl_separateur	
-                     );
-
+	);
 
     #################################################################################### 
     # Définitions de les expressions avec intervales 
     #################################################################################### 
 
-    my $intervale_chiffre = qr/
+    my $intervale_chapitre = qr/
         # Intervale Verset, Ex '-4', '-45'
         $spaces     # Spaces
-        $self->{'intervale'} # Interval
+        $self->{'intervale'}
         $spaces     # Spaces
-        $self->{'chiffre'} # Chiffre
+        $self->{'chapitre'}
     /x;
 
-    # intervale_chiffre : deux chapitre avec un tiret entre
+    # intervale_chapitre : deux chapitre avec un tiret entre
     # Par exemple: '-2', '–9', ou ' - 4'
-    $self->_set_regex(	'intervale_chiffre', 
-			$configs{'intervale_chiffre'},  
-                        $intervale_chiffre	
-                     );
+    $self->_set_regex(	'intervale_chapitre', 
+			$configs{'intervale_chapitre'},  
+                        $intervale_chapitre	
+	);
 
-    my $cv_separateur_chiffre = qr/
+    my $intervale_verset = qr/
+        # Intervale Verset, Ex '-4', '-45'
+        $spaces     # Spaces
+        $self->{'intervale'} 
+        $spaces     # Spaces
+        $self->{'verset'} 
+    /x;
+
+    # intervale_verset : deux chapitre avec un tiret entre
+    # Par exemple: '-2', '–9', ou ' - 4'
+    $self->_set_regex(	'intervale_verset', 
+			$configs{'intervale_verset'},  
+                        $intervale_verset	
+	);
+
+    my $cv_separateur_verset = qr/
         # CV Separator Verset
         $spaces# Spaces
         $self->{'cv_separateur'} # CV Separator
         $spaces# Spaces
-        $self->{'chiffre'}
+        $self->{'verset'}
     /x;
 
-    # cv_separateur_chiffre : deux chapitre avec un tiret entre
+    # cv_separateur_verset : deux chapitre avec un tiret entre
     # Par exemple: ':2', '.9', ou ' : 4'
-    $self->_set_regex(	'cv_separateur_chiffre', 
-			$configs{'cv_separateur_chiffre'}, 
-                        $cv_separateur_chiffre	
-		     );
+    $self->_set_regex(	'cv_separateur_verset', 
+			$configs{'cv_separateur_verset'}, 
+                        $cv_separateur_verset	
+	);
 
     #################################################################################### 
     # Définitions de les references numiques 
@@ -181,28 +193,28 @@ sub new {
     $self->_set_regex(	'reference_mots', 
 			$configs{'reference_mots'}, 
                         $reference_mots			
-    );
+	);
 
     # chapitre_contexte_mots_avant : les mots qui indique que le prochain référence est un chapitre référence
     my $chapitre_mots = qr/(?:dans le chapitre)/;
     $self->_set_regex(	'chapitre_mots', 
 			$configs{'chapitre_mots'}, 
                         $chapitre_mots			
-    );
+	);
 
     # verset_contexte_mots_avant : les mots qui indique que le prochain référence est un verset référence
     my $verset_mots = qr/(?:vv?\.)/;
     $self->_set_regex(	'verset_mots', 
 			$configs{'verset_mots'},  
                         $verset_mots
-    );
+	);
 
     # voir_contexte_mots_avant : les mots qui indique que le prochain référence est un verset référence
     my $voir_mots = qr/(?:voir)/;
     $self->_set_regex(	'voir_mots', 
 			$configs{'voir_mots'},  
                         $voir_mots
-    );
+	  );
 
     #################################################################################### 
     # Définitions de les expressions avec livres 
@@ -214,18 +226,18 @@ sub new {
     /x;
 
     $self->_set_regex(	'livres_numerique', 
-			$configs{'livres_numerique'}, 
-                        $livres_numerique
-    );
+        $configs{'livres_numerique'}, 
+        $livres_numerique
+	  );
 
     my $livres_numerique_protect = "";
-    if (defined($self->{'livres_numerique'})) {
-        $livres_numerique_protect = qr/(?!(?:[\s ]*(?:$livres_numerique)))/;
+    if ($self->{'livres_numerique'} ne '(?-xism:)') {
+        $livres_numerique_protect = qr/(?!(?:[\s ]*(?:$self->{livres_numerique})))/;
     }
     $self->_set_regex(   'livres_numerique_protect',
-            $configs{'livres_numerique_protect'},
-            $livres_numerique_protect
-    );
+			 $configs{'livres_numerique_protect'},
+			 $livres_numerique_protect
+	);
 
     
     my $livres = qr/
@@ -236,7 +248,7 @@ sub new {
     $self->_set_regex(	'livres', 
 			$configs{'livres'}, 
                         $livres
-    );
+	);
 
     my $abbreviations = qr/
         Ge|Ex|Lé|No|De|Dt|Jos|Jug|Jg|Ru|1[\s ]*S|2[\s ]*S|1[\s ]*R|2[\s ]*R|1[\s ]*Ch|2[\s ]*Ch|Esd|Né|Est|Job|Ps|Ps|Pr|Ec|Ca|Esa|Esa|És|Jér|Jé|La|Ez|Éz|Da|Os|Joe|Joë|Am|Ab|Jon|Mic|Mi|Na|Ha|Sop|So|Ag|Za|Mal|Ma|Mt|Mc|Mr|Lu|Jn|Ac|Ro|1[\s ]*Co|2[\s ]*Co|Ga|Ep|Ép|Ph|Col|1[\s ]*Th|2[\s ]*Th|1[\s ]*Ti|2[\s ]*Ti|Ti|Tit|Phm|Hé|Ja|1[\s ]*Pi|2[\s ]*Pi|1[\s ]*Jn|2[\s ]*Jn|3[\s ]*Jn|Jude|Jud|Ap|1[\s ]*Es|2[\s ]*Es|Tob|Jdt|Est|Sag|Sir|Bar|Aza|Sus|Bel|Man|1[\s ]*Ma|2[\s ]*Ma|3[\s ]*Ma|4[\s ]*Ma|2[\s ]*Ps
@@ -273,31 +285,31 @@ sub new {
     $self->_set_regex(	'contexte_mots', 
 			$configs{'contexte_mots'}, 
 			$contexte_mots
-		    );
+	);
 
     #livre2abre : une table de changement pour livre à l'abréviation
     $self->_set_hash(	'book2key', 
 			$configs{'book2key'}, 
                         {}
-    );
+	);
     
     #abre2livres : une table de changement pour abréviation à livre
     $self->_set_hash(	'abbr2key', 
 			$configs{'abbr2key'}, 
 			{}
-		    );
+	);
 
     #livre2abre : une table de changement pour livre à l'abréviation
     $self->_set_hash(	'key2book', 
 			$configs{'key2book'}, 
                         {}
-    );
+	);
     
     #abre2livres : une table de changement pour abréviation à livre
     $self->_set_hash(	'key2abbr', 
 			$configs{'key2abbr'}, 
 			{}
-		    );
+	);
 
 
     # livres_avec_un_chapitre :  la liste de tous les livres avec un seul chapitre
@@ -305,33 +317,33 @@ sub new {
     $self->_set_regex(	'livres_avec_un_chapitre', 
 			$configs{'livres_avec_un_chapitre'}, 
                         $livres_avec_un_chapitre
-	             );
+	);
 
     #######################################################################################################
     # full_reference_protection : Il s'agit d'une expression régulière complexe. Ne pas changer, 
     # sauf si vous savez ce que vous faites.
 
     my $cv_list = qr/
-        $self->{'chiffre'} # LC, '22'
+        $self->{'chapitre'} # LC, '22'
         $self->{'livres_numerique_protect'}
         (?: # Choose between CV and Interval
           (?:
             (?:# LCC: Ge 22-24
-              $self->{'intervale_chiffre'}
+              $self->{'intervale_chapitre'}
               (?:# LCCV: Ge 22-23:46
-                $self->{'cv_separateur_chiffre'}
+                $self->{'cv_separateur_verset'}
                 (?: # LCCVV:Ge 22-23:46-49
-                    $self->{'intervale_chiffre'}
+                    $self->{'intervale_verset'}
                 )?
               )?
             )
           |
             (?:# LCV:Ge 1:1
-              $self->{'cv_separateur_chiffre'}
+              $self->{'cv_separateur_verset'}
               (?: # LCVV:Ge 22-23:46-49
-                $self->{'intervale_chiffre'}
+                $self->{'intervale_verset'}
                 (?:# LCVCV:Ge 22:23-46:49
-                  $self->{'cv_separateur_chiffre'}
+                  $self->{'cv_separateur_verset'}
                 )?
               )?
             )
@@ -343,7 +355,7 @@ sub new {
     $self->_set_regex(	'cv_list', 
 			$configs{'cv_list'},
 	                $cv_list	
-		     );
+	);
 
 
     # reference_biblique_list : Cette expression régulière correspond à une liste de références bibliques 
@@ -427,7 +439,7 @@ sub book {
 
     chomp($key);
 
-#    return $self->{key2book}{$key} if ($key =~ /\d/);
+    return $self->{key2book}{$key} if ($key =~ /^\d$/);
 
     # try a lookup just in case $key eq 'Pr' or 'Genèse'    
     my $foundkey = $self->key($key);
@@ -462,8 +474,8 @@ sub bookname_type {
 ################################################################################
 sub _set_regex {
     my ($self, $key, $regex, $default_regex) = @_;
-#    return '' if (m/^$/ =~ $regex);
-	if (defined($regex)) {
+#    return if (m/^$/ =~ $regex);
+  	if (defined($regex)) {
         my $result = eval { qr/$regex/ };	        # Evaluate that line
         if ($@) {                       	# Check for compile or run-time errors.
             croak "Invalid regex:\n $regex";
@@ -472,9 +484,9 @@ sub _set_regex {
         }
     } elsif (defined($regex) && $regex eq ''){
        return; 
-	} else {
-		$self->{$key} = $default_regex; 
-	}
+	  } else {
+  		$self->{$key} = $default_regex; 
+	  }
 }
 
 sub _set_hash {
@@ -587,25 +599,37 @@ sub _init_book_and_abbreviation_data_structures {
 
     my $regex;
     my (@livres, @livres_numerique, @abbreviations);    # Array for all match books and another for match books starting with a number
-    my (%book2key, %abbr2key, %key2abbr, %key2book);    # Mappings between match books and abbreviations and the primary key
+    my (%book2key, %abbr2key, %key2abbr, %key2book, %ln);    # Mappings between match books and abbreviations and the primary key
     
     # Loop through each number and gather the books
     while ( my ($key, $value) = each %{$config} ) {
         # Loop through 
         foreach my $livre (@{$value->{Match}{Book}}) {
             push @livres, $livre;
-            push @livres_numerique, $livre if ($livre =~ m/^\d+/);
             $book2key{$livre} = $key;
+            if ($livre =~ m/^\d+/) {
+              $livre =~ s/\d+[\s ]*([A-Za-z]+)/$1/xg;
+              $ln{$livre} = 1;
+              
+            }
         }
         # Loop through 
         foreach my $abbreviation (@{$value->{Match}{Abbreviation}}) {
             push @abbreviations, $abbreviation;
             $abbr2key{$abbreviation} = $key;
+            if ($abbreviation =~ m/^\d+/) {
+              $abbreviation =~ s/\d+[\s ]*([A-Za-z]+)/$1/xg;
+              $ln{$abbreviation} = 1;
+            }
         }
         $key2abbr{$key} = $value->{Normalized}{Abbreviation};
         $key2book{$key} = $value->{Normalized}{Book};
     }
      
+    foreach my $y (sort(keys %ln)) {
+      push @livres_numerique, $y;
+    }
+
     $retval->{'livres'} = _join_regex(\@livres);
     $retval->{'abbreviations'} = _join_regex(\@abbreviations);
     $retval->{'livres_numerique'} = _join_regex(\@livres_numerique);

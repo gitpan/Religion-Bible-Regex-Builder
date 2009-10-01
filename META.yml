@@ -1,16 +1,24 @@
 --- #YAML:1.0
-name:                Religion-Bible-Regex-Builder
-version:             v0.96
-abstract:            builds regular expressions that match Bible References
-license:             ~
-author:              
+name:               Religion-Bible-Regex-Builder
+version:            0.98
+abstract:           builds regular expressions that match Bible References
+author:
     - Daniel Holmlund <holmlund.dev@gmail.com>
-generated_by:        ExtUtils::MakeMaker version 6.42
-distribution_type:   module
-requires:     
-    Religion::Bible::Regex::Config: 0
-    Test::More:                    0
-    version:                       0
+license:            unknown
+distribution_type:  module
+configure_requires:
+    ExtUtils::MakeMaker:  0
+build_requires:
+    ExtUtils::MakeMaker:  0
+requires:
+    Religion::Bible::Regex::Config:  0
+    Test::More:           0
+    version:              0
+no_index:
+    directory:
+        - t
+        - inc
+generated_by:       ExtUtils::MakeMaker version 6.50
 meta-spec:
-    url:     http://module-build.sourceforge.net/META-spec-v1.3.html
-    version: 1.3
+    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
+    version:  1.4
